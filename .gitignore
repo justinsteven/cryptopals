@@ -1,0 +1,10 @@
+# JetBrains
+.idea/
+
+# Vim
+[._]*.sw[a-p]
+
+# Python
+__pycache__/
+*.py[cod]
+venv

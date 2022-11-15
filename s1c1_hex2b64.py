@@ -2,7 +2,6 @@
 from util import hex2b64
 
 """
-
 Convert hex to base64
 
 The string:

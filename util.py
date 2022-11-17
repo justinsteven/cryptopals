@@ -1,9 +1,11 @@
 import base64
+import itertools
 from itertools import cycle
 from math import inf
 import string
-from typing import List, Callable
+from typing import List, Callable, Generator, Tuple, Optional
 from dataclasses import dataclass
+from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 
 
 def hex2b64(hex: str) -> str:
@@ -151,3 +153,187 @@ def break_single_xor_cipher(ciphertexts: List[bytes],
                                                       score=scoring_function(plaintext)))
 
     return sorted(decryptions, key=lambda x: x.score, reverse=True)
+
+
+def bitwise_hamming_distance(b1: bytes, b2: bytes) -> int:
+    """
+    Return the number of bits that must be changed in b1 to get b2
+
+    >>> bitwise_hamming_distance(b"HELLO", b"JELLO")
+    1
+    >>> bitwise_hamming_distance(b"hello", b"jello")
+    1
+    >>> bitwise_hamming_distance(b"AAAAA", b"JJJJA")
+    12
+    >>> bitwise_hamming_distance(b"this is a test", b"wokka wokka!!!")
+    37
+    """
+    assert len(b1) == len(b2), "Inputs are of different length"
+    res = 0
+    for a, b in zip(b1, b2):
+        x = a ^ b
+        while x:
+            res += x & 1
+            x >>= 1
+    return res
+
+
+def chunkify(b: bytes, chunk_size: int) -> Generator[bytes, None, None]:
+    """
+    Yield chunk_size sized chunks from b
+
+    >>> list(chunkify(b"ABCD", 2))
+    [b'AB', b'CD']
+
+    >>> list(chunkify(b"ABCDE", 2))
+    [b'AB', b'CD', b'E']
+    """
+    for i in range(0, len(b), chunk_size):
+        yield b[i:i + chunk_size]
+
+
+def guess_repeating_xor_key_length(ciphertext: bytes) -> int:
+    """
+    Given a ciphertext which is the result of applying repeating XOR with an unknown key of unknown
+    length. Guess the length of the key by chunking the ciphertext and observing inter-chunk hamming
+    distances for chunks of all possible lengths
+
+    Assumes len(key) <= (len(ciphertext) / 3)
+
+    #>>> ciphertext = base64.b64decode(open("data/s1c6.txt", "r").read().encode())
+    #>>> guess_repeating_xor_key_length(ciphertext)
+    #29
+
+    #>>> plaintext = open("data/alice.txt", "r").read()[:2048].encode()
+    #>>> key = b"You wouldn't batch an RPC call"
+    #>>> guess_repeating_xor_key_length(repeating_key_xor(plaintext, key)) == len(key)
+    #True
+    """
+
+    """
+    atwolf0: could you find the lowest common multiple in each pair going down the list and add
+    up the most common of the common multiples and pick the one that has the most?
+    
+    atwolf0: only reason i thought pairs from the sorted list of results was because goign though every combonation
+    might be too intensive. and since the list is already in order there should i think be a really obvious value
+    pretty quickly
+    
+    atwolf0: just not sure the best way to actually explain it its like a list of a list of common multiples and pairs
+    of the list sort of kinda made sense in my mind
+    """
+
+    assert ciphertext, "ciphertext must be non-zero-length"
+
+    scores: List[Tuple[int, float]] = []
+
+    for chunk_size in range(1, len(ciphertext) + 1):
+        chunks = list(chunkify(ciphertext, chunk_size))
+        # Throw away the last chunk in case it's incomplete
+        chunks = chunks[:-1]
+        # Check to see we have at least two chunks to work with
+        if len(chunks) < 2:
+            break
+        score = 0
+        num_comparisons = 0
+        for a, b in itertools.combinations(chunks, 2):
+            score += bitwise_hamming_distance(a, b)
+            num_comparisons += 1
+        score /= num_comparisons
+        score /= chunk_size
+        scores.append((chunk_size, score))
+
+    # Sort scores by score
+    scores = sorted(scores, key=lambda x: x[1])
+
+    def pairwise(iterable):
+        # pairwise('ABCDEFG') --> AB BC CD DE EF FG
+        a, b = itertools.tee(iterable)
+        next(b, None)
+        return zip(a, b)
+
+    scores_deltas = []
+    for a, b in pairwise(scores):
+        scores_deltas.append((a[0], b[1] - a[1]))
+
+    max_delta = 0
+    index_of_max_delta = None
+
+    for i, record in enumerate(scores_deltas):
+        if record[1] > max_delta:
+            max_delta = record[1]
+            index_of_max_delta = i
+
+    assert max_delta != 0, "Something went wrong"
+
+    good_scores = scores[:index_of_max_delta+1]
+
+    keysize = min(x[0] for x in good_scores)
+
+    assert all(x[0] % keysize == 0 for x in good_scores), f"Not all good scores are multiples of the keysize {keysize}"
+
+    return keysize
+
+
+def break_repeating_key_xor(ciphertext: bytes, key_length: Optional[int] = None) -> bytes:
+    """
+    Return the best-guess key for a ciphertext which has been encrypted using repeating key XOR
+
+    @param ciphertext: The encrypted ciphertext
+    @param key_length: (Optional) the key length, if known. If unknown, inter-chunk hamming distance will be used to derive it
+
+    #>>> ciphertext = base64.b64decode(open("data/s1c6.txt", "r").read().encode())
+    #>>> break_repeating_key_xor(ciphertext)
+    #b'Terminator X: Bring the ioise'
+    """
+    if key_length is None:
+        key_length = guess_repeating_xor_key_length(ciphertext)
+
+    chunks = chunkify(ciphertext, key_length)
+
+    transposed_chunks = [bytes(b for b in x if b is not None) for x in itertools.zip_longest(*chunks)]
+
+    key: List[int] = []
+
+    for transposed_chunk in transposed_chunks:
+        key.append(break_single_xor_cipher([transposed_chunk])[0].key)
+
+    return bytes(key)
+
+
+def aes_ecb_decrypt(ciphertext: bytes, key: bytes) -> bytes:
+    """
+    Decrypt ciphertext using AES-ECB using the given key
+
+    with open("data/s1c7.txt", "r") as f:
+    >>> ciphertext = base64.b64decode(open("data/s1c7.txt", "r").read().encode())
+    >>> b"You thought that I was weak, Boy, you're dead wrong" in aes_ecb_decrypt(ciphertext, b"YELLOW SUBMARINE")
+    True
+    """
+    cipher = Cipher(algorithms.AES(key), modes.ECB())
+    decryptor = cipher.decryptor()
+    return decryptor.update(ciphertext) + decryptor.finalize()
+
+
+def identify_ciphertexts_encrypted_with_ecb(ciphertexts: List[bytes], block_size: int) -> List[bytes]:
+    """
+    Given a list of ciphertexts, return the ciphertexts which were suspected to have been encrypted using
+    a block cipher in ECB mode.
+
+    This function assumes that _any_ redundancy on a block basis indicates ECB encryption.
+
+    >>> ciphertexts = [bytes.fromhex(line.rstrip()) for line in open("data/s1c8.txt", "r").readlines()]
+    >>> sus = identify_ciphertexts_encrypted_with_ecb(ciphertexts, 16)
+    >>> len(sus)
+    1
+    >>> base64.b64encode(sus[0]).decode()
+    '2IBhl0CooZt4QKijHIEKPQhkmvcNwG9P1dLWnHRM0oPi3QUva2Qdv50RsDSFQrtXCGSa9w3Ab0/V0tacdEzSg5R1yd/bwdRll5SdnH6Cv1oIZJr3DcBvT9XS1px0TNKDl6k+q41q7NVmSJFUeJprAwhkmvcNwG9P1dLWnHRM0oPUAxgMmMj22x8qP5xAQN6wq1GymTPywSPFg4awb7oYag=='
+    """
+    sus: List[bytes] = []
+    for ciphertext in ciphertexts:
+        chunks = list(chunkify(ciphertext, block_size))
+        num_chunks = len(chunks)
+        num_unique_chunks = len(set(chunks))
+        num_duplicated_chunks = num_chunks - num_unique_chunks
+        if num_duplicated_chunks > 0:
+            sus.append(ciphertext)
+    return sus

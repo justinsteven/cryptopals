@@ -39,7 +39,7 @@ We get more tech support questions for this challenge than any of the other ones
 
 
 def main():
-    with open("data/s1c6.txt", "r") as f:
+    with open("data/s1c06.txt", "r") as f:
         ciphertext = base64.b64decode(f.read().encode())
 
     print("Guessing key for ciphertext...")

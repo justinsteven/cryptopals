@@ -140,7 +140,7 @@ def break_single_xor_cipher(ciphertexts: List[bytes],
     >>> break_single_xor_cipher([ciphertext])[0].plaintext
     b"Cooking MC's like a pound of bacon"
 
-    >>> ciphertexts = [bytes.fromhex(line.strip()) for line in open("data/s1c4.txt", "r")]
+    >>> ciphertexts = [bytes.fromhex(line.strip()) for line in open("data/s1c04.txt", "r")]
     >>> any(b"jumping" in x.plaintext for x in break_single_xor_cipher(ciphertexts)[:10])
     True
     """
@@ -202,7 +202,7 @@ def guess_repeating_xor_key_length(ciphertext: bytes) -> int:
 
     Assumes len(key) <= (len(ciphertext) / 3)
 
-    #>>> ciphertext = base64.b64decode(open("data/s1c6.txt", "r").read().encode())
+    #>>> ciphertext = base64.b64decode(open("data/s1c06.txt", "r").read().encode())
     #>>> guess_repeating_xor_key_length(ciphertext)
     #29
 
@@ -283,7 +283,7 @@ def break_repeating_key_xor(ciphertext: bytes, key_length: Optional[int] = None)
     @param ciphertext: The encrypted ciphertext
     @param key_length: (Optional) the key length, if known. If unknown, inter-chunk hamming distance will be used to derive it
 
-    #>>> ciphertext = base64.b64decode(open("data/s1c6.txt", "r").read().encode())
+    #>>> ciphertext = base64.b64decode(open("data/s1c06.txt", "r").read().encode())
     #>>> break_repeating_key_xor(ciphertext)
     #b'Terminator X: Bring the ioise'
     """
@@ -308,8 +308,7 @@ def aes128_ecb_decrypt(ciphertext: bytes, key: bytes) -> bytes:
 
     Automatically unpads plaintext using PKCS#7
 
-    with open("data/s1c7.txt", "r") as f:
-    >>> ciphertext = base64.b64decode(open("data/s1c7.txt", "r").read().encode())
+    >>> ciphertext = base64.b64decode(open("data/s1c07.txt", "r").read().encode())
     >>> b"You thought that I was weak, Boy, you're dead wrong" in aes128_ecb_decrypt(ciphertext, b"YELLOW SUBMARINE")
     True
     """
@@ -344,7 +343,7 @@ def identify_ciphertexts_encrypted_with_ecb(ciphertexts: List[bytes], block_size
 
     This function assumes that _any_ redundancy on a block basis indicates ECB encryption.
 
-    >>> ciphertexts = [bytes.fromhex(line.rstrip()) for line in open("data/s1c8.txt", "r").readlines()]
+    >>> ciphertexts = [bytes.fromhex(line.rstrip()) for line in open("data/s1c08.txt", "r").readlines()]
     >>> sus = identify_ciphertexts_encrypted_with_ecb(ciphertexts, 16)
     >>> len(sus)
     1

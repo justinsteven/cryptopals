@@ -13,7 +13,7 @@ Find it.
 
 
 def main():
-    with open("data/s1c4.txt", "r") as f:
+    with open("data/s1c04.txt", "r") as f:
         ciphertexts = [bytes.fromhex(line.strip()) for line in f]
 
     results = break_single_xor_cipher(ciphertexts)

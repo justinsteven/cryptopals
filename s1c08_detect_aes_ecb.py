@@ -15,7 +15,7 @@ Remember that the problem with ECB is that it is stateless and deterministic; th
 
 
 def main():
-    with open("data/s1c8.txt", "r") as f:
+    with open("data/s1c08.txt", "r") as f:
         ciphertexts = [bytes.fromhex(line.rstrip()) for line in f.readlines()]
 
     block_size = 16

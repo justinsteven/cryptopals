@@ -21,7 +21,7 @@ You can obviously decrypt this using the OpenSSL command-line tool, but we're ha
 
 
 def main():
-    with open("data/s1c7.txt", "r") as f:
+    with open("data/s1c07.txt", "r") as f:
         ciphertext = base64.b64decode(f.read().encode())
 
     key = b"YELLOW SUBMARINE"

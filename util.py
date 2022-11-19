@@ -474,11 +474,10 @@ class AES128EcbCbcOracle:
 
         if self.mode is BlockCipherMode.ECB:
             return aes128_ecb_encrypt(plaintext, key=key)
-        elif self.mode is BlockCipherMode.CBC:
+        else:
+            assert self.mode is BlockCipherMode.CBC, "What the hell happened here?"
             iv = token_bytes(16)
             return aes128_cbc_encrypt(plaintext, key=key, iv=iv)
-        else:
-            raise ValueError("What the hell happened here")
 
 
 def determine_oracle_ecb_vs_cbc(oracle: Callable) -> BlockCipherMode:

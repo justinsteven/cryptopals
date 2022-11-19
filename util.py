@@ -393,6 +393,8 @@ def pad_pkcs7(data: bytes, block_size: int) -> bytes:
     >>> pad_pkcs7(b"YELLOW SUBMARINE", 17)
     b'YELLOW SUBMARINE\\x01'
     """
+    if block_size < 1:
+        raise ValueError("block_size must be positive")
     num_padding_bytes = block_size - len(data) % block_size
     return data + bytes([num_padding_bytes] * num_padding_bytes)
 

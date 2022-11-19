@@ -403,6 +403,11 @@ class PaddingError(Exception):
 
 def unpad_pkcs7(data: bytes, strict: bool = True) -> bytes:
     """
+    Unpad data using PKCS#7
+
+    @param data: The data to unpad
+    @param strict: If True, PaddingError is raised if not all padding bytes are n where n is the number of padding bytes
+
     >>> unpad_pkcs7(b"Hello, world!\\x02\\x02")
     b'Hello, world!'
     >>> unpad_pkcs7(pad_pkcs7(b"Beware of the hazmat", 100))

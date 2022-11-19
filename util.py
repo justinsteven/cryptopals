@@ -320,6 +320,14 @@ def aes128_ecb_decrypt(ciphertext: bytes, key: bytes) -> bytes:
     >>> ciphertext = base64.b64decode(open("data/s1c07.txt", "r").read().encode())
     >>> b"You thought that I was weak, Boy, you're dead wrong" in aes128_ecb_decrypt(ciphertext, b"YELLOW SUBMARINE")
     True
+
+    >>> aes128_ecb_decrypt(b"too short", key=bytes([0]*16))
+    Traceback (most recent call last):
+    ValueError: The length of the provided data is not a multiple of the block length.
+
+    >>> aes128_ecb_decrypt(b"A"*16, key=b"too short")
+    Traceback (most recent call last):
+    ValueError: Invalid key size (72) for AES.
     """
     cipher = Cipher(algorithms.AES128(key), modes.ECB())
     decryptor = cipher.decryptor()
@@ -330,7 +338,7 @@ def aes128_ecb_decrypt(ciphertext: bytes, key: bytes) -> bytes:
 
 def aes128_ecb_encrypt(plaintext: bytes, key: bytes) -> bytes:
     """
-    Encrypt ciphertext using AES128-ECB using the given key
+    Encrypt ciphertext using AES-128 in ECB mode using the given key
 
     Automatically pads plaintext using PKCS#7
 
@@ -338,6 +346,10 @@ def aes128_ecb_encrypt(plaintext: bytes, key: bytes) -> bytes:
     >>> key = b"YELLOW SUBMARINE"
     >>> aes128_ecb_decrypt(aes128_ecb_encrypt(plaintext, key), key) == plaintext
     True
+
+    >>> aes128_ecb_encrypt(b"AAAA", key=b"too short")
+    Traceback (most recent call last):
+    ValueError: Invalid key size (72) for AES.
     """
     plaintext = pad_pkcs7(plaintext, 16)
     cipher = Cipher(algorithms.AES128(key), modes.ECB())
@@ -407,11 +419,29 @@ def unpad_pkcs7(data: bytes, strict: bool = True) -> bytes:
 
 def aes128_cbc_decrypt(ciphertext: bytes, key: bytes, iv: bytes) -> bytes:
     """
+    Decrypt ciphertext using AES-128 in CBC mode (the hard way) using the given key
+
+    Automatically unpads plaintext using PKCS#7
+
     >>> ciphertext = base64.b64decode(open("data/s2c10.txt", "r").read().encode())
     >>> key = b"YELLOW SUBMARINE"
     >>> iv = bytes([0] * 16)
     >>> b"Play that funky music" in aes128_cbc_decrypt(ciphertext, key=key, iv=iv)
     True
+
+    >>> aes128_cbc_decrypt(b"too short", key=bytes([0]*16), iv=bytes([0]*16))
+    Traceback (most recent call last):
+    ValueError: The length of the provided data is not a multiple of the block length.
+
+    >>> aes128_cbc_decrypt(b"A"*16, key=b"too short", iv=bytes([0]*16))
+    Traceback (most recent call last):
+    ValueError: Invalid key size (72) for AES.
+
+    # This actually blows up in fixed_xor before the Cipher gets a chance to complain
+    # The important thing is, it blows up
+    >>> aes128_cbc_decrypt(b"A"*16, key=bytes([0]*16), iv=b"too short")
+    Traceback (most recent call last):
+    ValueError: Arguments are of different length
     """
     def aes128_decrypt(ciphertext: bytes, key: bytes):
         cipher = Cipher(algorithms.AES128(key), modes.ECB())
@@ -431,12 +461,26 @@ def aes128_cbc_decrypt(ciphertext: bytes, key: bytes, iv: bytes) -> bytes:
 
 def aes128_cbc_encrypt(plaintext: bytes, key: bytes, iv: bytes) -> bytes:
     """
+    Encrypt ciphertext using AES-128 in CBC mode (the hard way) using the given key
+
+    Automatically pads plaintext using PKCS#7
+
     >>> key = b"YELLOW SUBMARINE"
     >>> iv = bytes([0] * 16)
     >>> plaintext = b"That's a lotta words, too bad I ain't reading em"
     >>> ciphertext = aes128_cbc_encrypt(plaintext, key=key, iv=iv)
     >>> aes128_cbc_decrypt(ciphertext, key=key, iv=iv) == plaintext
     True
+
+    >>> aes128_cbc_encrypt(b"AAAA", key=b"too short", iv=bytes([0]*16))
+    Traceback (most recent call last):
+    ValueError: Invalid key size (72) for AES.
+
+    # This actually blows up in fixed_xor before the Cipher gets a chance to complain
+    # The important thing is, it blows up
+    >>> aes128_cbc_encrypt(b"AAAA", key=bytes([0]*16), iv=b"too short")
+    Traceback (most recent call last):
+    ValueError: Arguments are of different length
     """
     def aes128_encrypt(plaintext: bytes, key: bytes):
         cipher = Cipher(algorithms.AES128(key), modes.ECB())

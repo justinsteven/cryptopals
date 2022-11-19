@@ -69,7 +69,8 @@ def score_english_text_by_frequency(text: bytes) -> float:
     is not scored. Non-printable chars are penalised. Higher score means more English-like input
     """
     len_text = len(text)
-    assert len_text > 10, "Total length of text is not great enough to give a meaningful score"
+    if len_text <= 10:
+        raise ValueError("Total length of text is not great enough to give a meaningful score")
 
     printables = list(map(ord, string.printable))
 

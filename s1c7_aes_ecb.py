@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 import base64
-from util import aes_ecb_decrypt
+from util import aes128_ecb_decrypt
 
 """
 AES in ECB mode
@@ -26,7 +26,7 @@ def main():
 
     key = b"YELLOW SUBMARINE"
 
-    plaintext = aes_ecb_decrypt(ciphertext, key)
+    plaintext = aes128_ecb_decrypt(ciphertext, key)
 
     print(plaintext.decode())
 

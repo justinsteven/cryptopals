@@ -1,8 +1,10 @@
 import base64
 import itertools
+from enum import Enum
 from itertools import cycle
 from math import inf
 import string
+from secrets import choice, token_bytes, randbelow
 from typing import List, Callable, Generator, Tuple, Optional
 from dataclasses import dataclass
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
@@ -300,18 +302,39 @@ def break_repeating_key_xor(ciphertext: bytes, key_length: Optional[int] = None)
     return bytes(key)
 
 
-def aes_ecb_decrypt(ciphertext: bytes, key: bytes) -> bytes:
+def aes128_ecb_decrypt(ciphertext: bytes, key: bytes) -> bytes:
     """
-    Decrypt ciphertext using AES-ECB using the given key
+    Decrypt ciphertext using AES-128 in ECB mode using the given key
+
+    Automatically unpads plaintext using PKCS#7
 
     with open("data/s1c7.txt", "r") as f:
     >>> ciphertext = base64.b64decode(open("data/s1c7.txt", "r").read().encode())
-    >>> b"You thought that I was weak, Boy, you're dead wrong" in aes_ecb_decrypt(ciphertext, b"YELLOW SUBMARINE")
+    >>> b"You thought that I was weak, Boy, you're dead wrong" in aes128_ecb_decrypt(ciphertext, b"YELLOW SUBMARINE")
     True
     """
-    cipher = Cipher(algorithms.AES(key), modes.ECB())
+    cipher = Cipher(algorithms.AES128(key), modes.ECB())
     decryptor = cipher.decryptor()
-    return decryptor.update(ciphertext) + decryptor.finalize()
+    plaintext = decryptor.update(ciphertext) + decryptor.finalize()
+    plaintext = unpad_pkcs7(plaintext)
+    return plaintext
+
+
+def aes128_ecb_encrypt(plaintext: bytes, key: bytes) -> bytes:
+    """
+    Encrypt ciphertext using AES128-ECB using the given key
+
+    Automatically pads plaintext using PKCS#7
+
+    >>> plaintext = b"Beware of hazardous materials"
+    >>> key = b"YELLOW SUBMARINE"
+    >>> aes128_ecb_decrypt(aes128_ecb_encrypt(plaintext, key), key) == plaintext
+    True
+    """
+    plaintext = pad_pkcs7(plaintext, 16)
+    cipher = Cipher(algorithms.AES128(key), modes.ECB())
+    encryptor = cipher.encryptor()
+    return encryptor.update(plaintext) + encryptor.finalize()
 
 
 def identify_ciphertexts_encrypted_with_ecb(ciphertexts: List[bytes], block_size: int) -> List[bytes]:
@@ -337,3 +360,143 @@ def identify_ciphertexts_encrypted_with_ecb(ciphertexts: List[bytes], block_size
         if num_duplicated_chunks > 0:
             sus.append(ciphertext)
     return sus
+
+
+def pad_pkcs7(data: bytes, block_size: int) -> bytes:
+    """
+    >>> pad_pkcs7(b"YELLOW SUBMARINE", 20)
+    b'YELLOW SUBMARINE\\x04\\x04\\x04\\x04'
+    >>> pad_pkcs7(b"YELLOW SUBMARINE", 16)
+    b'YELLOW SUBMARINE\\x10\\x10\\x10\\x10\\x10\\x10\\x10\\x10\\x10\\x10\\x10\\x10\\x10\\x10\\x10\\x10'
+    >>> pad_pkcs7(b"YELLOW SUBMARINE", 17)
+    b'YELLOW SUBMARINE\\x01'
+    """
+    num_padding_bytes = block_size - len(data) % block_size
+    return data + bytes([num_padding_bytes] * num_padding_bytes)
+
+
+def unpad_pkcs7(data: bytes, strict: bool = True) -> bytes:
+    """
+    >>> unpad_pkcs7(b"Hello, world!\\x02\\x02")
+    b'Hello, world!'
+    >>> unpad_pkcs7(pad_pkcs7(b"Beware of the hazmat", 100))
+    b'Beware of the hazmat'
+    >>> unpad_pkcs7(b"Hello, world!\\x02")
+    Traceback (most recent call last):
+    ValueError: Bad padding in b'Hello, world!\\x02'
+    """
+    num_padding_bytes = data[-1]
+    unpadded = data[:-1*num_padding_bytes]
+    if strict:
+        if any(b != num_padding_bytes for b in data[-1*num_padding_bytes:]):
+            raise ValueError(f"Bad padding in {data!r}")
+    return unpadded
+
+
+def aes128_cbc_decrypt(ciphertext: bytes, key: bytes, iv: bytes) -> bytes:
+    """
+    >>> ciphertext = base64.b64decode(open("data/s2c10.txt", "r").read().encode())
+    >>> key = b"YELLOW SUBMARINE"
+    >>> iv = bytes([0] * 16)
+    >>> b"Play that funky music" in aes128_cbc_decrypt(ciphertext, key=key, iv=iv)
+    True
+    """
+    def aes128_decrypt(ciphertext: bytes, key: bytes):
+        cipher = Cipher(algorithms.AES128(key), modes.ECB())
+        decryptor = cipher.decryptor()
+        return decryptor.update(ciphertext) + decryptor.finalize()
+
+    plaintext: List[bytes] = []
+    prev_block = iv
+    for chunk in chunkify(ciphertext, chunk_size=16):
+        plaintext.append(fixed_xor(aes128_decrypt(chunk, key),
+                                   prev_block))
+        # Prepare to XOR this block into the next decryption operation
+        prev_block = chunk
+
+    return unpad_pkcs7(b"".join(plaintext))
+
+
+def aes128_cbc_encrypt(plaintext: bytes, key: bytes, iv: bytes) -> bytes:
+    """
+    >>> key = b"YELLOW SUBMARINE"
+    >>> iv = bytes([0] * 16)
+    >>> plaintext = b"That's a lotta words, too bad I ain't reading em"
+    >>> ciphertext = aes128_cbc_encrypt(plaintext, key=key, iv=iv)
+    >>> aes128_cbc_decrypt(ciphertext, key=key, iv=iv) == plaintext
+    True
+    """
+    def aes128_encrypt(plaintext: bytes, key: bytes):
+        cipher = Cipher(algorithms.AES128(key), modes.ECB())
+        encryptor = cipher.encryptor()
+        return encryptor.update(plaintext) + encryptor.finalize()
+
+    plaintext = pad_pkcs7(plaintext, 16)
+
+    ciphertext: List[bytes] = []
+    prev_block = iv
+    for chunk in chunkify(plaintext, chunk_size=16):
+        chunk = fixed_xor(chunk, prev_block)
+        chunk_crypt = aes128_encrypt(chunk, key)
+        prev_block = chunk_crypt
+        ciphertext.append(chunk_crypt)
+
+    return b"".join(ciphertext)
+
+
+class BlockCipherMode(Enum):
+    ECB = 0
+    CBC = 1
+
+
+class AES128EcbCbcOracle:
+    """
+    An oracle that randomly picks ECB or CBC mode (50/50 split) and then encrypts data using AES-128 in that mode
+    using a random key (and random IV in the case of CBC mode), bookending the plaintext with 5-10 random bytes
+    """
+    mode: BlockCipherMode
+
+    def __init__(self):
+        if choice((True, False)):
+            self.mode = BlockCipherMode.ECB
+        else:
+            self.mode = BlockCipherMode.CBC
+
+    def encrypt(self, plaintext: bytes) -> bytes:
+        """
+        Bookend plaintext with 5-10 random bytes. Encrypt bookeneded plaintext with a random key (and a random IV
+        in the case of CBC) using AES-128 with the cipher mode being self.mode (which is ECB 50% of the time and CBC
+        the rest of the time). Return the ciphertext.
+        """
+        key = token_bytes(16)
+
+        # Bookend plaintext with 5-10 random bytes
+        plaintext = token_bytes(randbelow(6) + 5) + plaintext + token_bytes(randbelow(6) + 5)
+
+        if self.mode is BlockCipherMode.ECB:
+            return aes128_ecb_encrypt(plaintext, key=key)
+        elif self.mode is BlockCipherMode.CBC:
+            iv = token_bytes(16)
+            return aes128_cbc_encrypt(plaintext, key=key, iv=iv)
+        else:
+            raise ValueError("What the hell happened here")
+
+
+def determine_oracle_ecb_vs_cbc(oracle: Callable) -> BlockCipherMode:
+    """
+    Determines if the callable oracle is encrypting using ECB or CBC
+
+    Accounts for the fact that the oracle may be prepending a random number of random bytes
+
+    >>> oracle = AES128EcbCbcOracle()
+    >>> guessed_mode = determine_oracle_ecb_vs_cbc(oracle.encrypt)
+    >>> guessed_mode is oracle.mode
+    True
+    """
+    plaintext = b"A"*16*4
+
+    ciphertext = oracle(plaintext)
+    if identify_ciphertexts_encrypted_with_ecb([ciphertext], block_size=16):
+        return BlockCipherMode.ECB
+    else:
+        return BlockCipherMode.CBC

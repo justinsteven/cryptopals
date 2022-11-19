@@ -29,8 +29,13 @@ def fixed_xor(b1: bytes, b2: bytes) -> bytes:
     >>> arg2 = bytes.fromhex('686974207468652062756c6c277320657965')
     >>> fixed_xor(arg1, arg2).hex()
     '746865206b696420646f6e277420706c6179'
+
+    >>> fixed_xor(b"AAAA", b"AAA")
+    Traceback (most recent call last):
+    ValueError: Arguments are of different length
     """
-    assert len(b1) == len(b2), "Arguments are of different length"
+    if len(b1) != len(b2):
+        raise ValueError("Arguments are of different length")
     res = []
     for a, b in zip(b1, b2):
         res.append(a ^ b)

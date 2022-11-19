@@ -233,7 +233,8 @@ def guess_repeating_xor_key_length(ciphertext: bytes) -> int:
     of the list sort of kinda made sense in my mind
     """
 
-    assert ciphertext, "ciphertext must be non-zero-length"
+    if not ciphertext:
+        raise ValueError("ciphertext must be non-zero length")
 
     scores: List[Tuple[int, float]] = []
 

@@ -544,7 +544,7 @@ class AES128EcbCbcOracle:
             return aes128_cbc_encrypt(plaintext, key=key, iv=iv)
 
 
-def determine_oracle_ecb_vs_cbc(oracle: Callable) -> BlockCipherMode:
+def determine_oracle_ecb_vs_cbc(oracle: Callable[[bytes], bytes]) -> BlockCipherMode:
     """
     Determines if the callable oracle is encrypting using ECB or CBC
 

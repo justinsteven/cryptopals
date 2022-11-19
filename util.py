@@ -174,8 +174,12 @@ def bitwise_hamming_distance(b1: bytes, b2: bytes) -> int:
     12
     >>> bitwise_hamming_distance(b"this is a test", b"wokka wokka!!!")
     37
+    >>> bitwise_hamming_distance(b"AAAA", b"AAA")
+    Traceback (most recent call last):
+    ValueError: Inputs are of different length
     """
-    assert len(b1) == len(b2), "Inputs are of different length"
+    if len(b1) != len(b2):
+        raise ValueError("Inputs are of different length")
     res = 0
     for a, b in zip(b1, b2):
         x = a ^ b

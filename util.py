@@ -374,6 +374,10 @@ def pad_pkcs7(data: bytes, block_size: int) -> bytes:
     return data + bytes([num_padding_bytes] * num_padding_bytes)
 
 
+class PaddingError(Exception):
+    pass
+
+
 def unpad_pkcs7(data: bytes, strict: bool = True) -> bytes:
     """
     >>> unpad_pkcs7(b"Hello, world!\\x02\\x02")
@@ -382,13 +386,13 @@ def unpad_pkcs7(data: bytes, strict: bool = True) -> bytes:
     b'Beware of the hazmat'
     >>> unpad_pkcs7(b"Hello, world!\\x02")
     Traceback (most recent call last):
-    ValueError: Bad padding in b'Hello, world!\\x02'
+    util.PaddingError: Bad padding in b'Hello, world!\\x02'
     """
     num_padding_bytes = data[-1]
     unpadded = data[:-1*num_padding_bytes]
     if strict:
         if any(b != num_padding_bytes for b in data[-1*num_padding_bytes:]):
-            raise ValueError(f"Bad padding in {data!r}")
+            raise PaddingError(f"Bad padding in {data!r}")
     return unpadded
 
 

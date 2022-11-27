@@ -2,7 +2,6 @@
 import itertools
 from secrets import token_bytes
 from typing import Callable, List
-
 from util import aes128_cbc_encrypt, aes128_cbc_decrypt, chunkify
 from urllib.parse import quote, parse_qsl
 
@@ -113,6 +112,17 @@ class SandwichOracle:
 def craft_ct_with_chosen_pt_prefix(encrypt_oracle: Callable[[bytes], bytes],
                                    decrypt_oracle: Callable[[bytes], bytes],
                                    prefix: bytes) -> bytes:
+    """
+    >>> oracle = SandwichOracle()
+    >>> ct = craft_ct_with_chosen_pt_prefix(encrypt_oracle=oracle.encrypt, prefix=b"admin=true;", decrypt_oracle=oracle.decrypt)
+    >>> oracle.decrypt_and_parse(ct)
+    True
+
+    >>> prefix = b"Mmm. Sandwiches"
+    >>> ct = craft_ct_with_chosen_pt_prefix(encrypt_oracle=oracle.encrypt, prefix=prefix, decrypt_oracle=oracle.decrypt)
+    >>> oracle.decrypt(ct).startswith(prefix)
+    True
+    """
     if len(prefix) > BLOCK_SIZE:
         raise ValueError("Prefix is too long")
 

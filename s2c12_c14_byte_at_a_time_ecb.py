@@ -75,15 +75,23 @@ class Aes128EcbAppendAndEncyptOracle:
     suffix: bytes
     key: bytes
 
-    def __init__(self, suffix: bytes, prepended_junk_minmax: Tuple[int, int] = (0, 0)):
+    def __init__(self, suffix: bytes, prepended_junk_minmax: Tuple[int, int] = (0, 1)):
+        """
+        >>> len(Aes128EcbAppendAndEncyptOracle(b"", prepended_junk_minmax=(5, 6)).junk)
+        5
+
+        >>> len(Aes128EcbAppendAndEncyptOracle(b"", prepended_junk_minmax=(5, 5)).junk)
+        Traceback (most recent call last):
+        ValueError: junk_max must be > junk_min
+        """
         self.key = token_bytes(BLOCK_SIZE)
         self.suffix = suffix
         junk_min, junk_max = prepended_junk_minmax
         if junk_min < 0:
             raise ValueError("junk_min must be >= 0")
-        if junk_max < junk_min:
-            raise ValueError("junk_max must be >= junk_min")
-        self.junk = token_bytes(junk_min + randbelow(junk_max - junk_min + 1))
+        if junk_max <= junk_min:
+            raise ValueError("junk_max must be > junk_min")
+        self.junk = token_bytes(junk_min + randbelow(junk_max - junk_min))
 
     def encrypt(self, prefix: bytes) -> bytes:
         return aes128_ecb_encrypt(self.junk + prefix + self.suffix, key=self.key)
@@ -116,17 +124,17 @@ def interrogate_appending_oracle(oracle: Callable[[bytes], bytes]) -> Interrogat
 
 
     >>> suffix = b"A"*8
-    >>> oracle = Aes128EcbAppendAndEncyptOracle(suffix=suffix, prepended_junk_minmax=(5, 5))
+    >>> oracle = Aes128EcbAppendAndEncyptOracle(suffix=suffix, prepended_junk_minmax=(5, 6))
     >>> interrogate_appending_oracle(oracle.encrypt)
     Interrogation(block_size=16, junk_length=5, suffix_length=8)
 
     >>> suffix = b"A"*8
-    >>> oracle = Aes128EcbAppendAndEncyptOracle(suffix=suffix, prepended_junk_minmax=(16, 16))
+    >>> oracle = Aes128EcbAppendAndEncyptOracle(suffix=suffix, prepended_junk_minmax=(16, 17))
     >>> interrogate_appending_oracle(oracle.encrypt)
     Interrogation(block_size=16, junk_length=16, suffix_length=8)
 
     >>> suffix = b"A"*8
-    >>> oracle = Aes128EcbAppendAndEncyptOracle(suffix=suffix, prepended_junk_minmax=(40, 40))
+    >>> oracle = Aes128EcbAppendAndEncyptOracle(suffix=suffix, prepended_junk_minmax=(40, 41))
     >>> interrogate_appending_oracle(oracle.encrypt)
     Interrogation(block_size=16, junk_length=40, suffix_length=8)
     """
@@ -190,17 +198,17 @@ def leak_suffix_from_appending_ecb_oracle(oracle: Callable[[bytes], bytes]):
     >>> res == flag
     True
 
-    >>> oracle = Aes128EcbAppendAndEncyptOracle(suffix=flag, prepended_junk_minmax=(5, 5))
+    >>> oracle = Aes128EcbAppendAndEncyptOracle(suffix=flag, prepended_junk_minmax=(5, 6))
     >>> res = leak_suffix_from_appending_ecb_oracle(oracle.encrypt)
     >>> res == flag
     True
 
-    >>> oracle = Aes128EcbAppendAndEncyptOracle(suffix=flag, prepended_junk_minmax=(16, 16))
+    >>> oracle = Aes128EcbAppendAndEncyptOracle(suffix=flag, prepended_junk_minmax=(16, 17))
     >>> res = leak_suffix_from_appending_ecb_oracle(oracle.encrypt)
     >>> res == flag
     True
 
-    >>> oracle = Aes128EcbAppendAndEncyptOracle(suffix=flag, prepended_junk_minmax=(24, 24))
+    >>> oracle = Aes128EcbAppendAndEncyptOracle(suffix=flag, prepended_junk_minmax=(24, 25))
     >>> res = leak_suffix_from_appending_ecb_oracle(oracle.encrypt)
     >>> res == flag
     True
@@ -211,17 +219,17 @@ def leak_suffix_from_appending_ecb_oracle(oracle: Callable[[bytes], bytes]):
     >>> res == empty
     True
 
-    >>> oracle = Aes128EcbAppendAndEncyptOracle(suffix=empty, prepended_junk_minmax=(5, 5))
+    >>> oracle = Aes128EcbAppendAndEncyptOracle(suffix=empty, prepended_junk_minmax=(5, 6))
     >>> res = leak_suffix_from_appending_ecb_oracle(oracle.encrypt)
     >>> res == empty
     True
 
-    >>> oracle = Aes128EcbAppendAndEncyptOracle(suffix=empty, prepended_junk_minmax=(16, 16))
+    >>> oracle = Aes128EcbAppendAndEncyptOracle(suffix=empty, prepended_junk_minmax=(16, 17))
     >>> res = leak_suffix_from_appending_ecb_oracle(oracle.encrypt)
     >>> res == empty
     True
 
-    >>> oracle = Aes128EcbAppendAndEncyptOracle(suffix=empty, prepended_junk_minmax=(24, 24))
+    >>> oracle = Aes128EcbAppendAndEncyptOracle(suffix=empty, prepended_junk_minmax=(24, 25))
     >>> res = leak_suffix_from_appending_ecb_oracle(oracle.encrypt)
     >>> res == empty
     True

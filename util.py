@@ -417,11 +417,17 @@ def unpad_pkcs7(data: bytes, strict: bool = True) -> bytes:
     >>> unpad_pkcs7(b"Hello, world!\\x02")
     Traceback (most recent call last):
     util.PaddingError: Bad padding in b'Hello, world!\\x02'
+    >>> unpad_pkcs7(b"\\x00")
+    Traceback (most recent call last):
+    util.PaddingError: Bad padding in b'\\x00'
+    >>> unpad_pkcs7(b"Hello, world!\\x00")
+    Traceback (most recent call last):
+    util.PaddingError: Bad padding in b'Hello, world!\\x00'
     """
     num_padding_bytes = data[-1]
     unpadded = data[:-1*num_padding_bytes]
     if strict:
-        if any(b != num_padding_bytes for b in data[-1*num_padding_bytes:]):
+        if num_padding_bytes == 0 or any(b != num_padding_bytes for b in data[-1*num_padding_bytes:]):
             raise PaddingError(f"Bad padding in {data!r}")
     return unpadded
 

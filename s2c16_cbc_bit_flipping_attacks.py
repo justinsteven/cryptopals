@@ -49,11 +49,9 @@ BLOCK_SIZE = 16
 
 class SandwichOracle:
     key: bytes
-    verbose: bool
 
-    def __init__(self, verbose: bool = False):
+    def __init__(self):
         self.key = token_bytes(BLOCK_SIZE)
-        self.verbose = verbose
 
     def encrypt(self, userdata: bytes):
         """
@@ -65,8 +63,6 @@ class SandwichOracle:
         ct = aes128_cbc_encrypt(plaintext=pt,
                                 key=self.key,
                                 iv=iv)
-        if self.verbose:
-            print(f"{userdata!r} --> {pt!r} --> {iv+ct[:5]!r}...")
         return iv + ct
 
     def decrypt(self, ciphertext: bytes) -> bytes:
@@ -93,8 +89,6 @@ class SandwichOracle:
         """
         pt = self.decrypt(ciphertext)
         data = dict(parse_qsl(pt, separator=";"))
-        if self.verbose:
-            print(f"{ciphertext[:5]!r}... --> {pt!r} --> {data}")
         try:
             admin = data[b"admin"]
         except KeyError:
@@ -141,7 +135,7 @@ def craft_ct_with_chosen_pt_prefix(encrypt_oracle: Callable[[bytes], bytes],
 
 
 def main():
-    oracle = SandwichOracle(verbose=True)
+    oracle = SandwichOracle()
     ct = craft_ct_with_chosen_pt_prefix(encrypt_oracle=oracle.encrypt,
                                         prefix=b"admin=true;",
                                         decrypt_oracle=oracle.decrypt)

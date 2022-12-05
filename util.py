@@ -427,7 +427,11 @@ def unpad_pkcs7(data: bytes, strict: bool = True) -> bytes:
     num_padding_bytes = data[-1]
     unpadded = data[:-1*num_padding_bytes]
     if strict:
-        if num_padding_bytes == 0 or any(b != num_padding_bytes for b in data[-1*num_padding_bytes:]):
+        if num_padding_bytes == 0:
+            raise PaddingError(f"Bad padding in {data!r}")
+        if len(data) < num_padding_bytes:
+            raise PaddingError(f"Bad padding in {data!r}")
+        if any(b != num_padding_bytes for b in data[-1 * num_padding_bytes:]):
             raise PaddingError(f"Bad padding in {data!r}")
     return unpadded
 

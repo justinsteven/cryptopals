@@ -258,12 +258,6 @@ def guess_repeating_xor_key_length(ciphertext: bytes) -> int:
     # Sort scores by score
     scores = sorted(scores, key=lambda x: x[1])
 
-    def pairwise(iterable):
-        # pairwise('ABCDEFG') --> AB BC CD DE EF FG
-        a, b = itertools.tee(iterable)
-        next(b, None)
-        return zip(a, b)
-
     scores_deltas = []
     for a, b in pairwise(scores):
         scores_deltas.append((a[0], b[1] - a[1]))
@@ -574,3 +568,13 @@ def determine_oracle_ecb_vs_cbc(oracle: Callable[[bytes], bytes]) -> BlockCipher
         return BlockCipherMode.ECB
     else:
         return BlockCipherMode.CBC
+
+
+def pairwise(iterable):
+    """
+    >>> list(pairwise(range(5)))
+    [(0, 1), (1, 2), (2, 3), (3, 4)]
+    """
+    a, b = itertools.tee(iterable)
+    next(b, None)
+    return zip(a, b)

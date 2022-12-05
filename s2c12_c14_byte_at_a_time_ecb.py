@@ -3,7 +3,7 @@ import base64
 import itertools
 from secrets import token_bytes, randbelow
 from typing import Callable, Deque, Tuple
-from util import aes128_ecb_encrypt, chunkify
+from util import aes128_ecb_encrypt, chunkify, pairwise
 from collections import deque, namedtuple
 
 # Solves both s2c12 and s2c14
@@ -152,12 +152,6 @@ def interrogate_appending_oracle(oracle: Callable[[bytes], bytes]) -> Interrogat
 
     # Generate a block of noise. We'll encrypt two of them at a time and look for pairwise duplication
     block = token_bytes(block_size)
-
-    def pairwise(iterable):
-        # pairwise('ABCDEFG') --> AB BC CD DE EF FG
-        a, b = itertools.tee(iterable)
-        next(b, None)
-        return zip(a, b)
 
     def get_junk_len(oracle: Callable[[bytes], bytes], block_size: int) -> int:
         for i in range(block_size):
